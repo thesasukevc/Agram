@@ -229,40 +229,156 @@
         </div>
     </div>
 
-    <!-- ===== JS LOGIKASI VA SOCKET INTEGRATSIYASI ===== -->
-    <script>
-        const socket = io(); 
+ <script>
+    const socket = io();
+    let currentUser = JSON.parse(localStorage.getItem('agram_user')) || null;
+    let authToken = localStorage.getItem('agram_token') || null;
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            const target = document.getElementById('tab-' + tabId);
-            if(target) target.classList.remove('hidden');
+    // Tizimga kirish holatini tekshirish
+    if (currentUser) {
+        socket.emit('user_online', currentUser.id);
+        updateProfileUI();
+        loadPosts();
+    }
+
+    // Tablarni almashtirish
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        const target = document.getElementById('tab-' + tabId);
+        if (target) target.classList.remove('hidden');
+    }
+
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.toggle('hidden');
+    }
+
+    function toggleNotifications() {
+        document.getElementById('notif-dropdown').classList.toggle('hidden');
+    }
+
+    function openUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); }
+    function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
+
+    // Profilni yangilash UI
+    function updateProfileUI() {
+        if (currentUser) {
+            document.getElementById('profile-name').innerText = currentUser.username;
+            document.getElementById('profile-username').innerText = `@${currentUser.username}`;
         }
+    }
 
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('-translate-x-full');
-            document.getElementById('sidebar-overlay').classList.toggle('hidden');
-        }
+    // Postlarni serverdan yuklab olish (API)
+    async function loadPosts() {
+        try {
+            const res = await fetch('/api/posts');
+            const posts = await res.json();
+            const container = document.getElementById('feed-container');
 
-        function toggleNotifications() {
-            document.getElementById('notif-dropdown').classList.toggle('hidden');
-        }
-
-        function openUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); }
-        function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
-        function closeCommentsDrawer() { document.getElementById('comments-drawer').classList.add('hidden'); }
-
-        function handlePostUpload() {
-            closeUploadModal();
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if(e.key === 'Escape') {
-                closeCommentsDrawer();
-                closeUploadModal();
-                document.getElementById('notif-dropdown').classList.add('hidden');
+            if (!posts.length) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-500 text-sm">
+                        <i class="ph ph-article text-4xl mb-2"></i>
+                        <p>Hozircha hech qanday post mavjud emas.</p>
+                    </div>`;
+                return;
             }
-        });
-    </script>
+
+            container.innerHTML = posts.map(post => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <img src="${post.user?.avatar || 'https://i.pravatar.cc/150'}" class="w-10 h-10 rounded-full">
+                        <div>
+                            <h4 class="font-bold text-sm text-white">${post.user?.username || 'Foydalanuvchi'}</h4>
+                            <p class="text-xs text-slate-400">${new Date(post.createdAt).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-200">${post.caption}</p>
+                    ${post.mediaUrl ? `<img src="${post.mediaUrl}" class="w-full rounded-xl max-h-96 object-cover">` : ''}
+                    <div class="flex items-center gap-4 text-xs text-slate-400 pt-2 border-t border-slate-800">
+                        <button onclick="likePost('${post._id}', '${post.user?._id}')" class="flex items-center gap-1 hover:text-rose-500">
+                            <i class="ph ph-heart text-lg"></i> <span>${post.likes?.length || 0}</span>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error("Postlarni yuklashda xatolik:", err);
+        }
+    }
+
+    // Like bosish
+    async function likePost(postId, targetUserId) {
+        if (!authToken) return alert("Avval tizimga kiring!");
+        try {
+            const res = await fetch(`/api/posts/${postId}/like`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            const data = await res.json();
+            loadPosts();
+
+            if (data.isLiked && targetUserId !== currentUser.id) {
+                socket.emit('send_notification', {
+                    targetUserId,
+                    message: `${currentUser.username} sizning postingizga like bosdi`,
+                    type: 'like'
+                });
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Post yuklash (Form-data)
+    async function handlePostUpload() {
+        const caption = document.getElementById('post-caption').value;
+        const fileInput = document.getElementById('post-file-input');
+
+        if (!caption) return alert("Sarlavha kiriting!");
+
+        const formData = new FormData();
+        formData.append('caption', caption);
+        if (fileInput && fileInput.files[0]) {
+            formData.append('media', fileInput.files[0]);
+        }
+
+        try {
+            const res = await fetch('/api/posts', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: formData
+            });
+            if (res.ok) {
+                closeUploadModal();
+                loadPosts();
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Socket event tinglovchilari
+    socket.on('receive_message', (data) => {
+        const chatMessages = document.getElementById('chat-messages');
+        if (chatMessages) {
+            chatMessages.innerHTML += `
+                <div class="bg-slate-800 p-2 rounded-xl text-white self-start max-w-[70%]">
+                    ${data.text}
+                </div>`;
+        }
+    });
+
+    socket.on('new_notification', (data) => {
+        const notifList = document.getElementById('notif-list');
+        if (notifList) {
+            notifList.innerHTML = `
+                <div class="p-2 bg-slate-800 rounded-lg text-white mb-2">
+                    <p class="font-semibold">${data.message}</p>
+                    <span class="text-[10px] text-slate-400">${new Date(data.time).toLocaleTimeString()}</span>
+                </div>` + notifList.innerHTML;
+        }
+    });
+</script>
 </body>
 </html>
