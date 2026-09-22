@@ -13,6 +13,9 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .story-ring {
+            background: linear-gradient(45deg, #f43f5e, #a855f7);
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col justify-between">
@@ -22,8 +25,14 @@
         <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
             <h1 class="text-2xl font-black gradient-text tracking-wider">AGRAM</h1>
 
+            <!-- Notification Toast/Badge -->
+            <div id="notification-box" class="hidden bg-rose-500 text-white text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 animate-bounce">
+                <i class="ph ph-bell text-sm"></i>
+                <span id="notification-text">Yangi bildirishnoma</span>
+            </div>
+
             <div class="flex items-center gap-3">
-                <button onclick="openUploadModal()" class="bg-gradient-to-r from-rose-500 to-purple-600 hover:opacity-90 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1 transition shadow-lg">
+                <button onclick="openUploadModal()" class="bg-gradient-to-r from-rose-500 to-purple-600 hover:opacity-90 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition shadow-lg">
                     <i class="ph ph-plus-circle text-lg"></i> Post
                 </button>
             </div>
@@ -56,6 +65,9 @@
                     <button onclick="switchTab('direct')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900 text-slate-300 hover:text-white transition font-medium text-sm">
                         <i class="ph ph-paper-plane-tilt text-xl text-purple-400"></i> Direct (Xabarlar)
                     </button>
+                    <button onclick="switchTab('settings')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900 text-slate-300 hover:text-white transition font-medium text-sm">
+                        <i class="ph ph-gear text-xl text-emerald-400"></i> Sozlamalar
+                    </button>
                 </nav>
             </div>
 
@@ -65,14 +77,27 @@
         </aside>
 
         <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 max-w-xl mx-auto w-full">
+        <main class="flex-1 max-w-xl mx-auto w-full space-y-6">
 
-            <!-- TAB 1: FEED -->
+            <!-- TAB 1: FEED & STORIES -->
             <section id="tab-feed" class="tab-content space-y-4">
+                
+                <!-- STORIES BAR -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex gap-4 overflow-x-auto no-scrollbar items-center">
+                    <div onclick="openStoryModal()" class="flex flex-col items-center gap-1 cursor-pointer shrink-0">
+                        <div class="w-14 h-14 rounded-full border-2 border-dashed border-rose-500 flex items-center justify-center text-rose-400 hover:scale-105 transition">
+                            <i class="ph ph-plus text-xl"></i>
+                        </div>
+                        <span class="text-[10px] text-slate-400">Story qo'shish</span>
+                    </div>
+                    <div id="stories-container" class="flex gap-4"></div>
+                </div>
+
+                <!-- POSTS FEED -->
                 <div id="feed-container" class="space-y-4"></div>
             </section>
 
-            <!-- TAB 2: SEARCH & FOLLOW -->
+            <!-- TAB 2: SEARCH -->
             <section id="tab-search" class="tab-content hidden space-y-4">
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
                     <div class="relative">
@@ -80,7 +105,7 @@
                         <input type="text" id="search-input" oninput="handleSearch()" placeholder="Foydalanuvchi qidirish..." class="w-full bg-slate-800 border border-slate-700/60 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500">
                     </div>
                     <div id="search-results" class="space-y-2">
-                        <p class="text-xs text-slate-500 text-center py-4">Qidirish uchun username yoki ism yozing...</p>
+                        <p class="text-xs text-slate-500 text-center py-4">Qidirish uchun username yozing...</p>
                     </div>
                 </div>
             </section>
@@ -94,13 +119,42 @@
                     </div>
 
                     <div id="direct-messages" class="flex-1 p-4 overflow-y-auto space-y-3 flex flex-col">
-                        <p class="text-xs text-slate-500 text-center my-auto">Qidiruv bo'limidan foydalanuvchini tanlab yozishingiz mumkin.</p>
+                        <p class="text-xs text-slate-500 text-center my-auto">Suhbatni boshlash uchun foydalanuvchini tanlang.</p>
                     </div>
 
                     <form onsubmit="sendDirectMessage(event)" class="p-3 border-t border-slate-800 flex gap-2">
                         <input type="text" id="direct-input" placeholder="Xabar yozing..." class="flex-1 bg-slate-800 border border-slate-700/60 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
                         <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white p-2 rounded-xl transition">
                             <i class="ph ph-paper-plane-right text-lg"></i>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- TAB 4: SETTINGS (Profil Tahrirlash) -->
+            <section id="tab-settings" class="tab-content hidden space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+                    <h3 class="font-bold text-sm text-white border-b border-slate-800 pb-2">Profil Sozlamalari</h3>
+                    
+                    <form onsubmit="handleProfileUpdate(event)" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] text-slate-400">Ism</label>
+                                <input type="text" id="edit-firstname" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400">Familiya</label>
+                                <input type="text" id="edit-lastname" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[10px] text-slate-400">O'zingiz haqida (Bio)</label>
+                            <textarea id="edit-bio" rows="2" placeholder="O'zingiz haqida qisqacha..." class="w-full bg-slate-800 border border-slate-700/60 rounded-xl p-3 text-xs text-white focus:outline-none resize-none"></textarea>
+                        </div>
+
+                        <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+                            Saqlash
                         </button>
                     </form>
                 </div>
@@ -113,12 +167,24 @@
     <div id="upload-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 class="font-bold text-base text-white">Yangi Post Yaratish</h3>
+                <h3 class="font-bold text-base text-white">Yangi Post</h3>
                 <button onclick="closeUploadModal()" class="text-slate-400 hover:text-white"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <textarea id="post-caption" rows="3" placeholder="Nimalar haqida o'ylayapsiz?..." class="w-full bg-slate-800 border border-slate-700/60 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-rose-500 resize-none"></textarea>
+            <textarea id="post-caption" rows="3" placeholder="Nimalar haqida o'ylayapsiz?..." class="w-full bg-slate-800 border border-slate-700/60 rounded-xl p-3 text-xs text-white focus:outline-none resize-none"></textarea>
             <input type="file" id="post-file-input" accept="image/*,video/*" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:bg-rose-500/10 file:text-rose-400">
             <button onclick="handlePostUpload()" class="w-full bg-gradient-to-r from-rose-500 to-purple-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg">Ulashing</button>
+        </div>
+    </div>
+
+    <!-- STORY UPLOAD MODAL -->
+    <div id="story-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-base text-white">Story Joylash</h3>
+                <button onclick="closeStoryModal()" class="text-slate-400 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <input type="file" id="story-file-input" accept="image/*,video/*" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:bg-rose-500/10 file:text-rose-400">
+            <button onclick="handleStoryUpload()" class="w-full bg-gradient-to-r from-rose-500 to-purple-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg">Story'ga joylash</button>
         </div>
     </div>
 
@@ -140,7 +206,7 @@
                     </div>
                     <input type="text" id="auth-username" placeholder="Username (@nik)" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
                     <div>
-                        <label class="block text-[10px] text-slate-400 mb-1">Profil rasmi (ixtiyoriy):</label>
+                        <label class="block text-[10px] text-slate-400 mb-1">Profil rasmi:</label>
                         <input type="file" id="auth-avatar-file" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-xs file:bg-rose-500/10 file:text-rose-400">
                     </div>
                 </div>
@@ -175,6 +241,7 @@
                 socket.emit('user_online', currentUser.id);
                 updateProfileUI();
                 loadPosts();
+                loadStories();
             } else {
                 document.getElementById('auth-modal').classList.remove('hidden');
             }
@@ -186,6 +253,11 @@
                 document.getElementById('profile-name').innerText = fullName;
                 document.getElementById('profile-username').innerText = `@${currentUser.username}`;
                 if (currentUser.avatar) document.getElementById('profile-avatar').src = currentUser.avatar;
+
+                // Settings inputs
+                document.getElementById('edit-firstname').value = currentUser.firstName || '';
+                document.getElementById('edit-lastname').value = currentUser.lastName || '';
+                document.getElementById('edit-bio').value = currentUser.bio || '';
             }
         }
 
@@ -196,6 +268,235 @@
 
         function openUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); }
         function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
+
+        function openStoryModal() { document.getElementById('story-modal').classList.remove('hidden'); }
+        function closeStoryModal() { document.getElementById('story-modal').classList.add('hidden'); }
+
+        // Real-time Notification
+        socket.on('new_notification', (data) => {
+            const notifBox = document.getElementById('notification-box');
+            document.getElementById('notification-text').innerText = data.message;
+            notifBox.classList.remove('hidden');
+            setTimeout(() => notifBox.classList.add('hidden'), 4000);
+        });
+
+        // Like toggle
+        async function toggleLike(postId) {
+            const res = await fetch(`/api/posts/${postId}/like`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            const data = await res.json();
+            if (data.success) loadPosts();
+        }
+
+        // Izoh Yozish
+        async function submitComment(e, postId) {
+            e.preventDefault();
+            const input = e.target.querySelector('input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const res = await fetch(`/api/posts/${postId}/comment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ text })
+            });
+
+            if (res.ok) {
+                input.value = '';
+                loadPosts();
+            }
+        }
+
+        // Postlarni yuklash
+        async function loadPosts() {
+            const res = await fetch('/api/posts');
+            const result = await res.json();
+            const posts = result.data || [];
+
+            document.getElementById('feed-container').innerHTML = posts.map(post => {
+                const isLiked = post.likes?.includes(currentUser?.id);
+                return `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <img src="${post.user?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=user'}" class="w-8 h-8 rounded-full object-cover">
+                        <div>
+                            <h4 class="font-bold text-xs text-white">${post.user?.firstName || ''} ${post.user?.lastName || post.user?.username || 'Foydalanuvchi'}</h4>
+                            <p class="text-[10px] text-slate-400">@${post.user?.username || 'user'}</p>
+                        </div>
+                    </div>
+                    ${post.caption ? `<p class="text-xs text-slate-200">${post.caption}</p>` : ''}
+                    ${post.mediaUrl ? (post.mediaType === 'video' ? `<video src="${post.mediaUrl}" controls class="w-full rounded-xl max-h-96 object-cover border border-slate-800"></video>` : `<img src="${post.mediaUrl}" class="w-full rounded-xl max-h-96 object-cover border border-slate-800">`) : ''}
+                    
+                    <!-- LIKE & COMMENTS COUNT -->
+                    <div class="flex items-center gap-4 pt-2 border-t border-slate-800/60">
+                        <button onclick="toggleLike('${post._id}')" class="flex items-center gap-1.5 text-xs ${isLiked ? 'text-rose-500 font-bold' : 'text-slate-400 hover:text-rose-500'} transition">
+                            <i class="ph ${isLiked ? 'ph-heart-fill' : 'ph-heart'} text-lg"></i>
+                            <span>${post.likes?.length || 0}</span>
+                        </button>
+                        <span class="flex items-center gap-1.5 text-xs text-slate-400">
+                            <i class="ph ph-chat-circle text-lg"></i>
+                            <span>${post.comments?.length || 0}</span>
+                        </span>
+                    </div>
+
+                    <!-- IZOHLAR -->
+                    <div class="space-y-2 pt-2">
+                        ${(post.comments || []).map(c => `
+                            <div class="text-[11px] bg-slate-800/40 p-2 rounded-xl flex gap-2">
+                                <span class="font-bold text-rose-400">@${c.user?.username || 'user'}:</span>
+                                <span class="text-slate-300">${c.text}</span>
+                            </div>
+                        `).join('')}
+
+                        <form onsubmit="submitComment(event, '${post._id}')" class="flex gap-2 pt-1">
+                            <input type="text" placeholder="Izoh qoldiring..." class="flex-1 bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none">
+                            <button type="submit" class="bg-rose-500 text-white text-xs px-3 py-1.5 rounded-xl font-bold">Yuborish</button>
+                        </form>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Stories yuklash
+        async function loadStories() {
+            const res = await fetch('/api/posts/stories');
+            const data = await res.json();
+            const stories = data.stories || [];
+
+            document.getElementById('stories-container').innerHTML = stories.map(s => `
+                <div onclick="window.open('${s.mediaUrl}', '_blank')" class="flex flex-col items-center gap-1 cursor-pointer shrink-0">
+                    <div class="p-0.5 story-ring rounded-full">
+                        <img src="${s.user?.avatar}" class="w-13 h-13 rounded-full border-2 border-slate-900 object-cover">
+                    </div>
+                    <span class="text-[10px] text-slate-300 truncate w-14 text-center">@${s.user?.username}</span>
+                </div>
+            `).join('');
+        }
+
+        async function handleStoryUpload() {
+            const fileInput = document.getElementById('story-file-input');
+            if (!fileInput.files[0]) return;
+
+            const formData = new FormData();
+            formData.append('media', fileInput.files[0]);
+
+            await fetch('/api/posts/stories', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: formData
+            });
+
+            closeStoryModal();
+            loadStories();
+        }
+
+        async function handleProfileUpdate(e) {
+            e.preventDefault();
+            const firstName = document.getElementById('edit-firstname').value;
+            const lastName = document.getElementById('edit-lastname').value;
+            const bio = document.getElementById('edit-bio').value;
+
+            const res = await fetch('/api/users/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ firstName, lastName, bio })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                localStorage.setItem('agram_user', JSON.stringify(data.user));
+                currentUser = data.user;
+                updateProfileUI();
+                alert("Profil yangilandi!");
+            }
+        }
+
+        async function handleSearch() {
+            const query = document.getElementById('search-input').value;
+            const container = document.getElementById('search-results');
+            if (!query.trim()) { container.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Qidirish uchun username yozing...</p>'; return; }
+
+            const res = await fetch(`/api/users/search?query=${query}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+            const data = await res.json();
+
+            if (!data.users || data.users.length === 0) { container.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Foydalanuvchi topilmadi</p>'; return; }
+
+            container.innerHTML = data.users.map(user => {
+                const isFollowing = user.followers?.includes(currentUser.id);
+                return `
+                    <div class="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-xl border border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <img src="${user.avatar}" class="w-9 h-9 rounded-full object-cover">
+                            <div>
+                                <h4 class="font-bold text-xs text-white">${user.firstName || ''} ${user.lastName || user.username}</h4>
+                                <p class="text-[10px] text-slate-400">@${user.username}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="startDirectChat('${user._id}', '${user.username}', '${user.avatar}')" class="bg-purple-500/20 text-purple-400 text-xs px-2.5 py-1.5 rounded-lg">Direct</button>
+                            <button onclick="toggleFollow('${user._id}', this)" class="${isFollowing ? 'bg-slate-700 text-slate-300' : 'bg-rose-500 text-white'} text-xs px-3 py-1.5 rounded-lg font-bold">
+                                ${isFollowing ? 'Bekor qilish' : 'Obuna bo\'lish'}
+                            </button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function toggleFollow(userId, btnElement) {
+            const res = await fetch(`/api/users/follow/${userId}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${authToken}` } });
+            const data = await res.json();
+            btnElement.innerText = data.isFollowing ? "Bekor qilish" : "Obuna bo'lish";
+            btnElement.className = data.isFollowing ? "bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-bold" : "bg-rose-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold";
+        }
+
+        function startDirectChat(userId, username, avatar) {
+            activeChatUser = { id: userId, username, avatar };
+            document.getElementById('chat-target-name').innerText = `@${username}`;
+            document.getElementById('chat-target-avatar').src = avatar;
+            document.getElementById('direct-messages').innerHTML = '';
+            switchTab('direct');
+        }
+
+        function sendDirectMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('direct-input');
+            if (!input.value.trim() || !activeChatUser) return;
+
+            socket.emit('send_direct_message', { senderId: currentUser.id, receiverId: activeChatUser.id, text: input.value.trim() });
+            input.value = '';
+        }
+
+        socket.on('receive_direct_message', (msg) => appendMessage(msg, false));
+        socket.on('message_sent', (msg) => appendMessage(msg, true));
+
+        function appendMessage(msg, isMine) {
+            const container = document.getElementById('direct-messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = `max-w-[70%] p-2.5 rounded-2xl text-xs ${isMine ? 'bg-rose-500 text-white ml-auto rounded-br-none' : 'bg-slate-800 text-slate-200 mr-auto rounded-bl-none'}`;
+            msgEl.innerText = msg.text;
+            container.appendChild(msgEl);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function handlePostUpload() {
+            const caption = document.getElementById('post-caption').value;
+            const fileInput = document.getElementById('post-file-input');
+            const formData = new FormData();
+            formData.append('caption', caption);
+            if (fileInput.files[0]) formData.append('media', fileInput.files[0]);
+
+            await fetch('/api/posts', { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData });
+            closeUploadModal();
+            loadPosts();
+        }
 
         function toggleAuthMode() {
             isRegisterMode = !isRegisterMode;
@@ -261,105 +562,6 @@
                     checkAuthStatus();
                 } catch (err) { errorBox.innerText = "Xatolik yuz berdi"; errorBox.classList.remove('hidden'); }
             }
-        }
-
-        async function handleSearch() {
-            const query = document.getElementById('search-input').value;
-            const container = document.getElementById('search-results');
-
-            if (!query.trim()) { container.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Qidirish uchun username yozing...</p>'; return; }
-
-            const res = await fetch(`/api/users/search?query=${query}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
-            const data = await res.json();
-
-            if (!data.users || data.users.length === 0) { container.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Foydalanuvchi topilmadi</p>'; return; }
-
-            container.innerHTML = data.users.map(user => {
-                const isFollowing = user.followers?.includes(currentUser.id);
-                return `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-xl border border-slate-800">
-                        <div class="flex items-center gap-3">
-                            <img src="${user.avatar}" class="w-9 h-9 rounded-full object-cover">
-                            <div>
-                                <h4 class="font-bold text-xs text-white">${user.firstName || ''} ${user.lastName || user.username}</h4>
-                                <p class="text-[10px] text-slate-400">@${user.username}</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="startDirectChat('${user._id}', '${user.username}', '${user.avatar}')" class="bg-purple-500/20 text-purple-400 text-xs px-2.5 py-1.5 rounded-lg">Direct</button>
-                            <button onclick="toggleFollow('${user._id}', this)" class="${isFollowing ? 'bg-slate-700 text-slate-300' : 'bg-rose-500 text-white'} text-xs px-3 py-1.5 rounded-lg font-bold">
-                                ${isFollowing ? 'Bekor qilish' : 'Obuna bo\'lish'}
-                            </button>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-
-        async function toggleFollow(userId, btnElement) {
-            const res = await fetch(`/api/users/follow/${userId}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${authToken}` } });
-            const data = await res.json();
-            btnElement.innerText = data.isFollowing ? "Bekor qilish" : "Obuna bo'lish";
-            btnElement.className = data.isFollowing ? "bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-bold" : "bg-rose-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold";
-        }
-
-        function startDirectChat(userId, username, avatar) {
-            activeChatUser = { id: userId, username, avatar };
-            document.getElementById('chat-target-name').innerText = `@${username}`;
-            document.getElementById('chat-target-avatar').src = avatar;
-            document.getElementById('direct-messages').innerHTML = '';
-            switchTab('direct');
-        }
-
-        function sendDirectMessage(e) {
-            e.preventDefault();
-            const input = document.getElementById('direct-input');
-            if (!input.value.trim() || !activeChatUser) return;
-
-            socket.emit('send_direct_message', { senderId: currentUser.id, receiverId: activeChatUser.id, text: input.value.trim() });
-            input.value = '';
-        }
-
-        socket.on('receive_direct_message', (msg) => appendMessage(msg, false));
-        socket.on('message_sent', (msg) => appendMessage(msg, true));
-
-        function appendMessage(msg, isMine) {
-            const container = document.getElementById('direct-messages');
-            const msgEl = document.createElement('div');
-            msgEl.className = `max-w-[70%] p-2.5 rounded-2xl text-xs ${isMine ? 'bg-rose-500 text-white ml-auto rounded-br-none' : 'bg-slate-800 text-slate-200 mr-auto rounded-bl-none'}`;
-            msgEl.innerText = msg.text;
-            container.appendChild(msgEl);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        async function loadPosts() {
-            const res = await fetch('/api/posts');
-            const result = await res.json();
-            const posts = result.data || [];
-            document.getElementById('feed-container').innerHTML = posts.map(post => `
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                    <div class="flex items-center gap-3">
-                        <img src="${post.user?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=user'}" class="w-8 h-8 rounded-full object-cover">
-                        <div>
-                            <h4 class="font-bold text-xs text-white">${post.user?.firstName || ''} ${post.user?.lastName || post.user?.username || 'Foydalanuvchi'}</h4>
-                            <p class="text-[10px] text-slate-400">@${post.user?.username || 'user'}</p>
-                        </div>
-                    </div>
-                    ${post.caption ? `<p class="text-xs text-slate-200">${post.caption}</p>` : ''}
-                    ${post.mediaUrl ? `<img src="${post.mediaUrl}" class="w-full rounded-xl max-h-96 object-cover border border-slate-800">` : ''}
-                </div>
-            `).join('');
-        }
-
-        async function handlePostUpload() {
-            const caption = document.getElementById('post-caption').value;
-            const fileInput = document.getElementById('post-file-input');
-            const formData = new FormData();
-            formData.append('caption', caption);
-            if (fileInput.files[0]) formData.append('media', fileInput.files[0]);
-
-            await fetch('/api/posts', { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData });
-            closeUploadModal();
-            loadPosts();
         }
 
         function logout() { localStorage.clear(); window.location.reload(); }
