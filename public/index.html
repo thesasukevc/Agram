@@ -3,382 +3,368 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agram — Full-Stack Hybrid Platform</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Agram - Ijtimoiy Tarmoq</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        agram: {
-                            rose: '#FF2D55',
-                            purple: '#833AB4',
-                            orange: '#FD1D1D',
-                            yellow: '#FCB045'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- Socket.io Client SDK -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         .gradient-text {
-            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            background: linear-gradient(135deg, #f43f5e 0%, #a855f7 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .story-ring-active {
-            padding: 2px;
-            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen pb-16 md:pb-0">
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col justify-between">
 
-    <!-- OVERLAY ZA MOBILNI SIDEBAR -->
-    <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden" onclick="toggleSidebar()"></div>
+    <!-- TOP NAVBAR -->
+    <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+            <h1 class="text-2xl font-black gradient-text tracking-wider">AGRAM</h1>
 
-    <!-- ===== TOPBAR ===== -->
-    <header class="fixed top-0 left-0 right-0 h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 z-40 flex items-center justify-between px-4">
-        <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="md:hidden text-slate-300 text-2xl hover:text-white" aria-label="Menu">
-                <i class="ph ph-list"></i>
-            </button>
-            <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('home')">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 via-purple-600 to-orange-500 flex items-center justify-center text-white shadow-lg">
-                    <i class="ph-fill ph-play text-xl"></i>
-                </div>
-                <span class="text-2xl font-black tracking-tight gradient-text">Agram</span>
-            </div>
-        </div>
-
-        <!-- Global Search -->
-        <div class="hidden sm:flex items-center flex-1 max-w-md mx-6">
-            <div class="relative w-full">
-                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
-                <input type="text" id="global-search" placeholder="Agram'dan qidirish (video, post, hashtag)..." 
-                       class="w-full bg-slate-800/80 border border-slate-700/60 rounded-full pl-10 pr-4 py-2 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500 transition">
-            </div>
-        </div>
-
-        <div class="flex items-center gap-3">
-            <button onclick="openUploadModal()" class="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-full font-medium text-sm transition shadow-md">
-                <i class="ph-bold ph-plus"></i>
-                <span class="hidden md:inline">Yaratish</span>
-            </button>
-            <div class="relative">
-                <button onclick="toggleNotifications()" class="relative p-2 text-slate-300 hover:text-white rounded-full hover:bg-slate-800 transition">
-                    <i class="ph ph-bell text-xl"></i>
+            <div class="flex items-center gap-3">
+                <button onclick="openUploadModal()" class="bg-gradient-to-r from-rose-500 to-purple-600 hover:opacity-90 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1 transition shadow-lg">
+                    <i class="ph ph-plus-circle text-lg"></i> Post
                 </button>
-                <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-50">
-                    <h4 class="font-bold text-sm mb-3 text-slate-200">Bildirishnomalar</h4>
-                    <div id="notif-list" class="space-y-3 text-xs text-slate-500 text-center py-4">
-                        Yangi bildirishnomalar yo'q
-                    </div>
-                </div>
-            </div>
-            <button onclick="switchTab('dm')" class="p-2 text-slate-300 hover:text-white rounded-full hover:bg-slate-800 transition">
-                <i class="ph ph-paper-plane-tilt text-xl"></i>
-            </button>
-            <div class="w-9 h-9 rounded-full bg-slate-800 border border-rose-500/50 flex items-center justify-center text-slate-300 cursor-pointer" onclick="switchTab('profile')">
-                <i class="ph ph-user text-lg"></i>
             </div>
         </div>
     </header>
 
-    <div class="flex pt-16">
-        <!-- ===== SIDEBAR ===== -->
-        <aside id="sidebar" class="fixed left-0 top-16 bottom-0 w-64 bg-slate-900/90 backdrop-blur-md border-r border-slate-800 p-4 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 z-30">
-            <nav class="space-y-1">
-                <button onclick="switchTab('home')" class="nav-link active flex items-center gap-4 w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white font-medium text-sm transition">
-                    <i class="ph-fill ph-house text-xl text-rose-500"></i> Bosh sahifa
-                </button>
-                <button onclick="switchTab('reels')" class="nav-link flex items-center gap-4 w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white font-medium text-sm transition">
-                    <i class="ph ph-film-strip text-xl text-purple-400"></i> Shorts & Reels
-                </button>
-                <button onclick="switchTab('dm')" class="nav-link flex items-center gap-4 w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white font-medium text-sm transition">
-                    <i class="ph ph-chats-teardrop text-xl text-blue-400"></i> Direct Chat
-                </button>
-                <hr class="border-slate-800 my-3">
-                <button onclick="switchTab('studio')" class="nav-link flex items-center gap-4 w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white font-medium text-sm transition">
-                    <i class="ph ph-chart-line-up text-xl text-emerald-400"></i> Creator Studio
-                </button>
-                <button onclick="switchTab('profile')" class="nav-link flex items-center gap-4 w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white font-medium text-sm transition">
-                    <i class="ph ph-user text-xl text-orange-400"></i> Mening Profilim
-                </button>
-            </nav>
-            <div class="text-xs text-slate-500 p-2 border-t border-slate-800">
-                <p>© 2026 Agram Inc.</p>
+    <!-- MAIN CONTAINER -->
+    <div class="max-w-4xl mx-auto px-4 py-6 flex-1 w-full flex gap-6">
+
+        <!-- SIDEBAR -->
+        <aside class="w-64 hidden md:flex flex-col justify-between">
+            <div class="space-y-6">
+                <!-- User Profile Card -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
+                    <img id="profile-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=guest" class="w-12 h-12 rounded-full border border-rose-500/30 object-cover">
+                    <div class="overflow-hidden">
+                        <h3 id="profile-name" class="font-bold text-sm text-white truncate">Mehmon</h3>
+                        <p id="profile-username" class="text-xs text-slate-400 truncate">@guest</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <nav class="space-y-1">
+                    <button onclick="switchTab('feed')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900 text-slate-300 hover:text-white transition font-medium text-sm">
+                        <i class="ph ph-house text-xl text-rose-400"></i> Lenta
+                    </button>
+                    <button onclick="switchTab('search')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900 text-slate-300 hover:text-white transition font-medium text-sm">
+                        <i class="ph ph-magnifying-glass text-xl text-blue-400"></i> Qidiruv
+                    </button>
+                    <button onclick="switchTab('direct')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900 text-slate-300 hover:text-white transition font-medium text-sm">
+                        <i class="ph ph-paper-plane-tilt text-xl text-purple-400"></i> Direct (Xabarlar)
+                    </button>
+                </nav>
             </div>
+
+            <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition font-medium text-sm">
+                <i class="ph ph-sign-out text-xl"></i> Chiqish
+            </button>
         </aside>
 
-        <!-- ===== MAIN CONTENT ===== -->
-        <main class="flex-1 md:ml-64 p-4 max-w-5xl mx-auto">
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 max-w-xl mx-auto w-full">
 
-            <!-- TAB 1: BOSH SAHIFA -->
-            <div id="tab-home" class="tab-content space-y-6">
-                
-                <!-- Stories Container -->
-                <div id="stories-container" class="flex gap-4 overflow-x-auto no-scrollbar py-2">
-                    <div class="flex flex-col items-center gap-1 cursor-pointer min-w-[72px]" onclick="openUploadModal()">
-                        <div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center text-rose-500 hover:border-rose-500 transition">
-                            <i class="ph-bold ph-plus text-xl"></i>
-                        </div>
-                        <span class="text-xs text-slate-400 truncate max-w-[70px]">Story qo'shish</span>
+            <!-- TAB 1: FEED -->
+            <section id="tab-feed" class="tab-content space-y-4">
+                <div id="feed-container" class="space-y-4"></div>
+            </section>
+
+            <!-- TAB 2: SEARCH & FOLLOW -->
+            <section id="tab-search" class="tab-content hidden space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+                    <div class="relative">
+                        <i class="ph ph-magnifying-glass absolute left-3 top-3 text-slate-400 text-lg"></i>
+                        <input type="text" id="search-input" oninput="handleSearch()" placeholder="Foydalanuvchi qidirish..." class="w-full bg-slate-800 border border-slate-700/60 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500">
+                    </div>
+                    <div id="search-results" class="space-y-2">
+                        <p class="text-xs text-slate-500 text-center py-4">Qidirish uchun username yoki ism yozing...</p>
                     </div>
                 </div>
+            </section>
 
-                <!-- Category Filters -->
-                <div class="flex gap-2 overflow-x-auto no-scrollbar">
-                    <button onclick="filterCategory('All', this)" class="category-pill bg-slate-100 text-slate-900 px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition">Barchasi</button>
-                </div>
-
-                <!-- Feed Container (Toza va bo'sh) -->
-                <div id="feed-container" class="space-y-6 max-w-2xl mx-auto flex flex-col items-center justify-center py-12 text-slate-500 text-sm">
-                    <i class="ph ph-article text-4xl mb-2"></i>
-                    <p>Hozircha hech qanday post mavjud emas.</p>
-                </div>
-            </div>
-
-            <!-- TAB 2: REELS -->
-            <div id="tab-reels" class="tab-content hidden flex justify-center">
-                <div id="reels-container" class="relative w-full max-w-sm aspect-[9/16] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-800 flex items-center justify-center text-slate-500 text-sm">
-                    Reels topilmadi
-                </div>
-            </div>
-
-            <!-- TAB 3: DIRECT CHAT -->
-            <div id="tab-dm" class="tab-content hidden">
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl h-[75vh] flex overflow-hidden">
-                    <div class="w-1/3 border-r border-slate-800 p-3 space-y-2">
-                        <h3 class="font-bold text-sm text-slate-200 px-2 py-1">Xabarlar</h3>
-                        <div id="chat-list" class="text-xs text-slate-500 p-2">Suhbatlar yo'q</div>
+            <!-- TAB 3: DIRECT (Chat) -->
+            <section id="tab-direct" class="tab-content hidden space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl h-[520px] flex flex-col">
+                    <div class="p-3 border-b border-slate-800 flex items-center gap-3">
+                        <img id="chat-target-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=chat" class="w-8 h-8 rounded-full object-cover">
+                        <span id="chat-target-name" class="font-bold text-xs text-white">Suhbatdoshni tanlang</span>
                     </div>
-                    <div class="flex-1 flex flex-col justify-between bg-slate-950/40 p-4">
-                        <div id="chat-header" class="flex items-center gap-3 pb-3 border-b border-slate-800 text-xs font-bold text-slate-400">
-                            Suhbatdosh tanlanmagan
-                        </div>
-                        <div id="chat-messages" class="space-y-2 overflow-y-auto text-xs py-2 flex flex-col"></div>
-                        <div class="flex gap-2 pt-2 border-t border-slate-800">
-                            <input type="text" id="dm-input" placeholder="Xabar yozing..." class="flex-1 bg-slate-900 border border-slate-800 rounded-full px-4 py-2 text-xs text-white focus:outline-none">
-                            <button onclick="sendDirectMessage()" class="bg-rose-500 text-white px-4 py-2 rounded-full text-xs font-bold hover:bg-rose-600 transition">Yuborish</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- TAB 4: CREATOR STUDIO -->
-            <div id="tab-studio" class="tab-content hidden space-y-4">
-                <h2 class="text-xl font-bold text-white">Creator Studio Dashboard</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-                        <p class="text-xs text-slate-400">Jami ko'rishlar</p>
-                        <p class="text-2xl font-black text-rose-500 mt-1">0</p>
+                    <div id="direct-messages" class="flex-1 p-4 overflow-y-auto space-y-3 flex flex-col">
+                        <p class="text-xs text-slate-500 text-center my-auto">Qidiruv bo'limidan foydalanuvchini tanlab yozishingiz mumkin.</p>
                     </div>
-                </div>
-            </div>
 
-            <!-- TAB 5: PROFILE -->
-            <div id="tab-profile" class="tab-content hidden space-y-6">
-                <div id="profile-info" class="flex items-center gap-6 bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                    <div class="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 text-3xl">
-                        <i class="ph ph-user"></i>
-                    </div>
-                    <div class="space-y-1">
-                        <h2 id="profile-name" class="text-lg font-bold text-white">Foydalanuvchi</h2>
-                        <p id="profile-username" class="text-xs text-slate-400">@user</p>
-                    </div>
+                    <form onsubmit="sendDirectMessage(event)" class="p-3 border-t border-slate-800 flex gap-2">
+                        <input type="text" id="direct-input" placeholder="Xabar yozing..." class="flex-1 bg-slate-800 border border-slate-700/60 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-rose-500">
+                        <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white p-2 rounded-xl transition">
+                            <i class="ph ph-paper-plane-right text-lg"></i>
+                        </button>
+                    </form>
                 </div>
-            </div>
+            </section>
 
         </main>
     </div>
 
-    <!-- MODALS -->
-    <div id="comments-drawer" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex justify-end">
-        <div class="w-full max-w-md bg-slate-900 border-l border-slate-800 h-full flex flex-col justify-between p-4">
-            <div class="flex justify-between items-center pb-3 border-b border-slate-800">
-                <h3 class="font-bold text-sm text-white">Izohlar</h3>
-                <button onclick="closeCommentsDrawer()" class="text-slate-400 hover:text-white text-xl"><i class="ph ph-x"></i></button>
-            </div>
-            <div id="comments-list" class="flex-1 overflow-y-auto my-3 space-y-3"></div>
-            <div class="flex gap-2 border-t border-slate-800 pt-3">
-                <input type="text" id="video-comment-input" placeholder="Izoh qoldiring..." class="flex-1 bg-slate-800 border border-slate-700 rounded-full px-4 py-2 text-xs text-white focus:outline-none">
-                <button onclick="submitVideoComment()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-full text-xs font-bold transition">Yuborish</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="upload-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-5 space-y-4">
+    <!-- POST MODAL -->
+    <div id="upload-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 class="font-bold text-sm text-white">Yangi kontent yuklash</h3>
-                <button onclick="closeUploadModal()" class="text-slate-400 hover:text-white text-xl"><i class="ph ph-x"></i></button>
+                <h3 class="font-bold text-base text-white">Yangi Post Yaratish</h3>
+                <button onclick="closeUploadModal()" class="text-slate-400 hover:text-white"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <input type="text" id="post-caption" placeholder="Sarlavha yozing..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none">
-            <input type="text" id="post-media-url" placeholder="Media URL (Rasm/Video kiritish)..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none">
-            <button onclick="handlePostUpload()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-xl text-xs transition">Chop etish</button>
+            <textarea id="post-caption" rows="3" placeholder="Nimalar haqida o'ylayapsiz?..." class="w-full bg-slate-800 border border-slate-700/60 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-rose-500 resize-none"></textarea>
+            <input type="file" id="post-file-input" accept="image/*,video/*" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:bg-rose-500/10 file:text-rose-400">
+            <button onclick="handlePostUpload()" class="w-full bg-gradient-to-r from-rose-500 to-purple-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg">Ulashing</button>
         </div>
     </div>
 
- <script>
-    const socket = io();
-    let currentUser = JSON.parse(localStorage.getItem('agram_user')) || null;
-    let authToken = localStorage.getItem('agram_token') || null;
+    <!-- AUTH MODAL -->
+    <div id="auth-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl my-auto">
+            <div class="text-center space-y-1">
+                <h3 id="auth-title" class="text-xl font-black gradient-text">Agram'ga kirish</h3>
+                <p id="auth-subtitle" class="text-xs text-slate-400">Davom etish uchun hisobingizga kiring</p>
+            </div>
 
-    // Tizimga kirish holatini tekshirish
-    if (currentUser) {
-        socket.emit('user_online', currentUser.id);
-        updateProfileUI();
-        loadPosts();
-    }
+            <div id="auth-error" class="hidden bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-3 rounded-xl"></div>
 
-    // Tablarni almashtirish
-    function switchTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-        const target = document.getElementById('tab-' + tabId);
-        if (target) target.classList.remove('hidden');
-    }
-
-    function toggleSidebar() {
-        document.getElementById('sidebar').classList.toggle('-translate-x-full');
-        document.getElementById('sidebar-overlay').classList.toggle('hidden');
-    }
-
-    function toggleNotifications() {
-        document.getElementById('notif-dropdown').classList.toggle('hidden');
-    }
-
-    function openUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); }
-    function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
-
-    // Profilni yangilash UI
-    function updateProfileUI() {
-        if (currentUser) {
-            document.getElementById('profile-name').innerText = currentUser.username;
-            document.getElementById('profile-username').innerText = `@${currentUser.username}`;
-        }
-    }
-
-    // Postlarni serverdan yuklab olish (API)
-    async function loadPosts() {
-        try {
-            const res = await fetch('/api/posts');
-            const posts = await res.json();
-            const container = document.getElementById('feed-container');
-
-            if (!posts.length) {
-                container.innerHTML = `
-                    <div class="text-center py-12 text-slate-500 text-sm">
-                        <i class="ph ph-article text-4xl mb-2"></i>
-                        <p>Hozircha hech qanday post mavjud emas.</p>
-                    </div>`;
-                return;
-            }
-
-            container.innerHTML = posts.map(post => `
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                    <div class="flex items-center gap-3">
-                        <img src="${post.user?.avatar || 'https://i.pravatar.cc/150'}" class="w-10 h-10 rounded-full">
-                        <div>
-                            <h4 class="font-bold text-sm text-white">${post.user?.username || 'Foydalanuvchi'}</h4>
-                            <p class="text-xs text-slate-400">${new Date(post.createdAt).toLocaleDateString()}</p>
-                        </div>
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-3">
+                <div id="register-fields" class="hidden space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="auth-firstname" placeholder="Ismingiz" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                        <input type="text" id="auth-lastname" placeholder="Familiyangiz" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
                     </div>
-                    <p class="text-sm text-slate-200">${post.caption}</p>
-                    ${post.mediaUrl ? `<img src="${post.mediaUrl}" class="w-full rounded-xl max-h-96 object-cover">` : ''}
-                    <div class="flex items-center gap-4 text-xs text-slate-400 pt-2 border-t border-slate-800">
-                        <button onclick="likePost('${post._id}', '${post.user?._id}')" class="flex items-center gap-1 hover:text-rose-500">
-                            <i class="ph ph-heart text-lg"></i> <span>${post.likes?.length || 0}</span>
-                        </button>
+                    <input type="text" id="auth-username" placeholder="Username (@nik)" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Profil rasmi (ixtiyoriy):</label>
+                        <input type="file" id="auth-avatar-file" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-xs file:bg-rose-500/10 file:text-rose-400">
                     </div>
                 </div>
-            `).join('');
-        } catch (err) {
-            console.error("Postlarni yuklashda xatolik:", err);
-        }
-    }
 
-    // Like bosish
-    async function likePost(postId, targetUserId) {
-        if (!authToken) return alert("Avval tizimga kiring!");
-        try {
-            const res = await fetch(`/api/posts/${postId}/like`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-            const data = await res.json();
-            loadPosts();
+                <div><input type="email" id="auth-email" required placeholder="E-mail" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none"></div>
+                <div><input type="password" id="auth-password" required placeholder="Parol" class="w-full bg-slate-800 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none"></div>
 
-            if (data.isLiked && targetUserId !== currentUser.id) {
-                socket.emit('send_notification', {
-                    targetUserId,
-                    message: `${currentUser.username} sizning postingizga like bosdi`,
-                    type: 'like'
-                });
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
+                <button type="submit" id="auth-submit-btn" class="w-full bg-gradient-to-r from-rose-500 to-purple-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg">Kirish</button>
+            </form>
 
-    // Post yuklash (Form-data)
-    async function handlePostUpload() {
-        const caption = document.getElementById('post-caption').value;
-        const fileInput = document.getElementById('post-file-input');
+            <div class="text-center text-xs text-slate-400 pt-2 border-t border-slate-800">
+                <span id="auth-toggle-text">Akkauntingiz yo'qmi?</span>
+                <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-rose-400 hover:underline font-bold ml-1">Ro'yxatdan o'tish</button>
+            </div>
+        </div>
+    </div>
 
-        if (!caption) return alert("Sarlavha kiriting!");
+    <!-- MAIN SCRIPT -->
+    <script>
+        const socket = io();
+        let currentUser = null;
+        let authToken = null;
+        let activeChatUser = null;
+        let isRegisterMode = false;
 
-        const formData = new FormData();
-        formData.append('caption', caption);
-        if (fileInput && fileInput.files[0]) {
-            formData.append('media', fileInput.files[0]);
-        }
+        function checkAuthStatus() {
+            authToken = localStorage.getItem('agram_token');
+            currentUser = JSON.parse(localStorage.getItem('agram_user'));
 
-        try {
-            const res = await fetch('/api/posts', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${authToken}` },
-                body: formData
-            });
-            if (res.ok) {
-                closeUploadModal();
+            if (authToken && currentUser) {
+                document.getElementById('auth-modal').classList.add('hidden');
+                socket.emit('user_online', currentUser.id);
+                updateProfileUI();
                 loadPosts();
+            } else {
+                document.getElementById('auth-modal').classList.remove('hidden');
             }
-        } catch (err) {
-            console.error(err);
         }
-    }
 
-    // Socket event tinglovchilari
-    socket.on('receive_message', (data) => {
-        const chatMessages = document.getElementById('chat-messages');
-        if (chatMessages) {
-            chatMessages.innerHTML += `
-                <div class="bg-slate-800 p-2 rounded-xl text-white self-start max-w-[70%]">
-                    ${data.text}
-                </div>`;
+        function updateProfileUI() {
+            if (currentUser) {
+                const fullName = `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.username;
+                document.getElementById('profile-name').innerText = fullName;
+                document.getElementById('profile-username').innerText = `@${currentUser.username}`;
+                if (currentUser.avatar) document.getElementById('profile-avatar').src = currentUser.avatar;
+            }
         }
-    });
 
-    socket.on('new_notification', (data) => {
-        const notifList = document.getElementById('notif-list');
-        if (notifList) {
-            notifList.innerHTML = `
-                <div class="p-2 bg-slate-800 rounded-lg text-white mb-2">
-                    <p class="font-semibold">${data.message}</p>
-                    <span class="text-[10px] text-slate-400">${new Date(data.time).toLocaleTimeString()}</span>
-                </div>` + notifList.innerHTML;
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
         }
-    });
-</script>
+
+        function openUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); }
+        function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-error').classList.add('hidden');
+            document.getElementById('register-fields').classList.toggle('hidden', !isRegisterMode);
+
+            if (isRegisterMode) {
+                document.getElementById('auth-title').innerText = "Ro'yxatdan o'tish";
+                document.getElementById('auth-submit-btn').innerText = "Akkaunt Yaratish";
+                document.getElementById('auth-toggle-text').innerText = "Akkauntingiz bormi?";
+                document.getElementById('auth-toggle-btn').innerText = "Kirish";
+            } else {
+                document.getElementById('auth-title').innerText = "Agram'ga kirish";
+                document.getElementById('auth-submit-btn').innerText = "Kirish";
+                document.getElementById('auth-toggle-text').innerText = "Akkauntingiz yo'qmi?";
+                document.getElementById('auth-toggle-btn').innerText = "Ro'yxatdan o'tish";
+            }
+        }
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const errorBox = document.getElementById('auth-error');
+            errorBox.classList.add('hidden');
+
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+
+            if (isRegisterMode) {
+                const firstName = document.getElementById('auth-firstname').value;
+                const lastName = document.getElementById('auth-lastname').value;
+                const username = document.getElementById('auth-username').value;
+                const avatarFile = document.getElementById('auth-avatar-file').files[0];
+
+                const formData = new FormData();
+                formData.append('firstName', firstName);
+                formData.append('lastName', lastName);
+                formData.append('username', username);
+                formData.append('email', email);
+                formData.append('password', password);
+                if (avatarFile) formData.append('avatar', avatarFile);
+
+                try {
+                    const res = await fetch('/api/auth/register', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (!data.success) { errorBox.innerText = data.message; errorBox.classList.remove('hidden'); return; }
+
+                    localStorage.setItem('agram_token', data.token);
+                    localStorage.setItem('agram_user', JSON.stringify(data.user));
+                    checkAuthStatus();
+                } catch (err) { errorBox.innerText = "Xatolik yuz berdi"; errorBox.classList.remove('hidden'); }
+            } else {
+                try {
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    const data = await res.json();
+                    if (!data.success) { errorBox.innerText = data.message; errorBox.classList.remove('hidden'); return; }
+
+                    localStorage.setItem('agram_token', data.token);
+                    localStorage.setItem('agram_user', JSON.stringify(data.user));
+                    checkAuthStatus();
+                } catch (err) { errorBox.innerText = "Xatolik yuz berdi"; errorBox.classList.remove('hidden'); }
+            }
+        }
+
+        async function handleSearch() {
+            const query = document.getElementById('search-input').value;
+            const container = document.getElementById('search-results');
+
+            if (!query.trim()) { container.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Qidirish uchun username yozing...</p>'; return; }
+
+            const res = await fetch(`/api/users/search?query=${query}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+            const data = await res.json();
+
+            if (!data.users || data.users.length === 0) { container.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Foydalanuvchi topilmadi</p>'; return; }
+
+            container.innerHTML = data.users.map(user => {
+                const isFollowing = user.followers?.includes(currentUser.id);
+                return `
+                    <div class="flex items-center justify-between p-2.5 bg-slate-800/50 rounded-xl border border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <img src="${user.avatar}" class="w-9 h-9 rounded-full object-cover">
+                            <div>
+                                <h4 class="font-bold text-xs text-white">${user.firstName || ''} ${user.lastName || user.username}</h4>
+                                <p class="text-[10px] text-slate-400">@${user.username}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="startDirectChat('${user._id}', '${user.username}', '${user.avatar}')" class="bg-purple-500/20 text-purple-400 text-xs px-2.5 py-1.5 rounded-lg">Direct</button>
+                            <button onclick="toggleFollow('${user._id}', this)" class="${isFollowing ? 'bg-slate-700 text-slate-300' : 'bg-rose-500 text-white'} text-xs px-3 py-1.5 rounded-lg font-bold">
+                                ${isFollowing ? 'Bekor qilish' : 'Obuna bo\'lish'}
+                            </button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function toggleFollow(userId, btnElement) {
+            const res = await fetch(`/api/users/follow/${userId}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${authToken}` } });
+            const data = await res.json();
+            btnElement.innerText = data.isFollowing ? "Bekor qilish" : "Obuna bo'lish";
+            btnElement.className = data.isFollowing ? "bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-bold" : "bg-rose-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold";
+        }
+
+        function startDirectChat(userId, username, avatar) {
+            activeChatUser = { id: userId, username, avatar };
+            document.getElementById('chat-target-name').innerText = `@${username}`;
+            document.getElementById('chat-target-avatar').src = avatar;
+            document.getElementById('direct-messages').innerHTML = '';
+            switchTab('direct');
+        }
+
+        function sendDirectMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('direct-input');
+            if (!input.value.trim() || !activeChatUser) return;
+
+            socket.emit('send_direct_message', { senderId: currentUser.id, receiverId: activeChatUser.id, text: input.value.trim() });
+            input.value = '';
+        }
+
+        socket.on('receive_direct_message', (msg) => appendMessage(msg, false));
+        socket.on('message_sent', (msg) => appendMessage(msg, true));
+
+        function appendMessage(msg, isMine) {
+            const container = document.getElementById('direct-messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = `max-w-[70%] p-2.5 rounded-2xl text-xs ${isMine ? 'bg-rose-500 text-white ml-auto rounded-br-none' : 'bg-slate-800 text-slate-200 mr-auto rounded-bl-none'}`;
+            msgEl.innerText = msg.text;
+            container.appendChild(msgEl);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function loadPosts() {
+            const res = await fetch('/api/posts');
+            const result = await res.json();
+            const posts = result.data || [];
+            document.getElementById('feed-container').innerHTML = posts.map(post => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <img src="${post.user?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=user'}" class="w-8 h-8 rounded-full object-cover">
+                        <div>
+                            <h4 class="font-bold text-xs text-white">${post.user?.firstName || ''} ${post.user?.lastName || post.user?.username || 'Foydalanuvchi'}</h4>
+                            <p class="text-[10px] text-slate-400">@${post.user?.username || 'user'}</p>
+                        </div>
+                    </div>
+                    ${post.caption ? `<p class="text-xs text-slate-200">${post.caption}</p>` : ''}
+                    ${post.mediaUrl ? `<img src="${post.mediaUrl}" class="w-full rounded-xl max-h-96 object-cover border border-slate-800">` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function handlePostUpload() {
+            const caption = document.getElementById('post-caption').value;
+            const fileInput = document.getElementById('post-file-input');
+            const formData = new FormData();
+            formData.append('caption', caption);
+            if (fileInput.files[0]) formData.append('media', fileInput.files[0]);
+
+            await fetch('/api/posts', { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData });
+            closeUploadModal();
+            loadPosts();
+        }
+
+        function logout() { localStorage.clear(); window.location.reload(); }
+
+        document.addEventListener('DOMContentLoaded', checkAuthStatus);
+    </script>
 </body>
 </html>

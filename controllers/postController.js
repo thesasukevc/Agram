@@ -1,5 +1,6 @@
 const Post = require('../models/Post');
 const { createClient } = require('@supabase/supabase-js');
+const path = require('path');
 
 // Supabase mijozini yaratish
 const supabase = createClient(
@@ -7,13 +8,42 @@ const supabase = createClient(
     process.env.SUPABASE_ANON_KEY
 );
 
-// 1. Barcha postlarni olish (Populate user ma'lumotlari bilan)
+const BUCKET_NAME = process.env.SUPABASE_BUCKET || 'agram-media';
+
+// Ruxsat etilgan fayl turlari
+const ALLOWED_MIME_TYPES = [
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+    'video/mp4', 'video/webm', 'video/quicktime'
+];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+
+// Yordamchi funksiya: fayl kengaytmasini xavfsiz olish
+function getSafeExtension(filename, mimetype) {
+    const ext = path.extname(filename || '').toLowerCase().replace('.', '');
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov'];
+    if (allowedExts.includes(ext)) return ext;
+
+    // mimetype'dan taxmin qilish
+    const map = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+        'video/mp4': 'mp4',
+        'video/webm': 'webm',
+        'video/quicktime': 'mov'
+    };
+    return map[mimetype] || 'bin';
+}
+
+// 1. Barcha postlarni olish
 exports.getAllPosts = async (req, res) => {
     try {
         const posts = await Post.find()
             .populate('user', 'username avatar')
             .populate('comments.user', 'username avatar')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean(); // Performance uchun
 
         res.status(200).json({
             success: true,
@@ -21,6 +51,7 @@ exports.getAllPosts = async (req, res) => {
             data: posts
         });
     } catch (error) {
+        console.error('[getAllPosts] xatolik:', error);
         res.status(500).json({
             success: false,
             message: 'Postlarni yuklashda xatolik yuz berdi',
@@ -29,36 +60,60 @@ exports.getAllPosts = async (req, res) => {
     }
 };
 
-// 2. Yangi post yaratish (Media fayl bo'lsa Supabase'ga yuklash)
+// 2. Yangi post yaratish
 exports.createPost = async (req, res) => {
     try {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Avtorizatsiya talab qilinadi'
+            });
+        }
+
         const { caption, category } = req.body;
         let mediaUrl = req.body.mediaUrl || '';
 
-        // Agar multerning xotirasida (memoryStorage) fayl kelgan bo'lsa
         if (req.file) {
             const file = req.file;
-            const fileExt = file.originalname.split('.').pop();
-            const fileName = `posts/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-            const { data, error } = await supabase.storage
-                .from(process.env.SUPABASE_BUCKET || 'agram-media')
+            // Fayl hajmini tekshirish
+            if (file.size > MAX_FILE_SIZE) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Fayl hajmi juda katta (maksimal ${MAX_FILE_SIZE / 1024 / 1024} MB)`
+                });
+            }
+
+            // Fayl turini tekshirish
+            if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Fayl turi qo\'llab-quvvatlanmaydi'
+                });
+            }
+
+            const fileExt = getSafeExtension(file.originalname, file.mimetype);
+            const fileName = `posts/${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from(BUCKET_NAME)
                 .upload(fileName, file.buffer, {
                     contentType: file.mimetype,
                     upsert: false
                 });
 
-            if (error) {
+            if (uploadError) {
+                console.error('[createPost] Supabase upload xatolik:', uploadError);
                 return res.status(500).json({
                     success: false,
                     message: 'Faylni Supabase Storage ga yuklashda xatolik',
-                    error: error.message
+                    error: uploadError.message
                 });
             }
 
-            // Ommaviy havola (Public URL) olish
+            // getPublicUrl SINXRON — await kerak emas
             const { data: publicUrlData } = supabase.storage
-                .from(process.env.SUPABASE_BUCKET || 'agram-media')
+                .from(BUCKET_NAME)
                 .getPublicUrl(fileName);
 
             mediaUrl = publicUrlData.publicUrl;
@@ -87,6 +142,7 @@ exports.createPost = async (req, res) => {
             data: newPost
         });
     } catch (error) {
+        console.error('[createPost] xatolik:', error);
         res.status(500).json({
             success: false,
             message: 'Post yaratishda xatolik',
@@ -95,36 +151,52 @@ exports.createPost = async (req, res) => {
     }
 };
 
-// 3. Postga Like bosish / Likenini olib tashlash (Toggle)
+// 3. Like toggle (atomic operatorlar bilan)
 exports.toggleLike = async (req, res) => {
     try {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ success: false, message: 'Avtorizatsiya talab qilinadi' });
+        }
+
         const postId = req.params.id;
         const userId = req.user.userId;
 
-        const post = await Post.findById(postId);
+        // Avval post mavjudligini va like holatini aniqlaymiz
+        const post = await Post.findById(postId).select('likes');
         if (!post) {
             return res.status(404).json({ success: false, message: 'Post topilmadi' });
         }
 
-        const likeIndex = post.likes.indexOf(userId);
-        let isLiked = false;
+        const hasLiked = post.likes.some(id => id.toString() === userId.toString());
 
-        if (likeIndex === -1) {
-            post.likes.push(userId);
-            isLiked = true;
+        let updatedPost;
+        if (hasLiked) {
+            // Unlike — atomic $pull
+            updatedPost = await Post.findByIdAndUpdate(
+                postId,
+                { $pull: { likes: userId } },
+                { new: true }
+            ).select('likes');
         } else {
-            post.likes.splice(likeIndex, 1);
-            isLiked = false;
+            // Like — atomic $addToSet (dublikat oldini oladi)
+            updatedPost = await Post.findByIdAndUpdate(
+                postId,
+                { $addToSet: { likes: userId } },
+                { new: true }
+            ).select('likes');
         }
 
-        await post.save();
+        if (!updatedPost) {
+            return res.status(404).json({ success: false, message: 'Post topilmadi' });
+        }
 
         res.status(200).json({
             success: true,
-            isLiked,
-            likesCount: post.likes.length
+            isLiked: !hasLiked,
+            likesCount: updatedPost.likes.length
         });
     } catch (error) {
+        console.error('[toggleLike] xatolik:', error);
         res.status(500).json({
             success: false,
             message: 'Like amaliyotida xatolik',
@@ -133,19 +205,28 @@ exports.toggleLike = async (req, res) => {
     }
 };
 
-// 4. Postga izoh (Comment) qo'shish
+// 4. Izoh qo'shish
 exports.addComment = async (req, res) => {
     try {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ success: false, message: 'Avtorizatsiya talab qilinadi' });
+        }
+
         const postId = req.params.id;
         const { text } = req.body;
 
         if (!text || !text.trim()) {
-            return res.status(400).json({ success: false, message: 'Izoh matni bo\'sh bo\'lishi mumkin emas' });
+            return res.status(400).json({
+                success: false,
+                message: 'Izoh matni bo\'sh bo\'lishi mumkin emas'
+            });
         }
 
-        const post = await Post.findById(postId);
-        if (!post) {
-            return res.status(404).json({ success: false, message: 'Post topilmadi' });
+        if (text.trim().length > 1000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Izoh juda uzun (maksimal 1000 belgi)'
+            });
         }
 
         const newComment = {
@@ -154,17 +235,27 @@ exports.addComment = async (req, res) => {
             createdAt: new Date()
         };
 
-        post.comments.push(newComment);
-        await post.save();
+        // Atomic push
+        const post = await Post.findByIdAndUpdate(
+            postId,
+            { $push: { comments: newComment } },
+            { new: true }
+        ).populate('comments.user', 'username avatar');
 
-        await post.populate('comments.user', 'username avatar');
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post topilmadi' });
+        }
+
+        // Faqat oxirgi qo'shilgan commentni qaytaramiz
+        const addedComment = post.comments[post.comments.length - 1];
 
         res.status(201).json({
             success: true,
             message: 'Izoh qo\'shildi',
-            data: post.comments
+            data: addedComment
         });
     } catch (error) {
+        console.error('[addComment] xatolik:', error);
         res.status(500).json({
             success: false,
             message: 'Izoh qo\'shishda xatolik',

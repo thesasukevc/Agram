@@ -1,100 +1,106 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const path = require('path');
+const cors = require('cors');
+const mongoose = require('mongoose');
 const { Server } = require('socket.io');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const connectDB = require('./config/db');
-const Message = require('./models/Message');
 
-const authRoutes = require('./routes/authRoutes');
-const postRoutes = require('./routes/postRoutes');
-const chatRoutes = require('./routes/chatRoutes');
+const Message = require('./models/Message');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: '*' }
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    }
 });
 
-// Bazaga ulanish
-connectDB();
-
-// Xavfsizlik
-app.use(helmet({ contentSecurityPolicy: false }));
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-    message: "Juda ko'p so'rov yuborildi, birozdan so'ng urinib ko'ring."
-});
-app.use(limiter);
-
+// Middlewares
+app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/posts', postRoutes);
-app.use('/api/chat', chatRoutes);
+// MongoDB Atlas ulanishi
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://kzoimov:kozimov1224@cluster0.7tdr9gu.mongodb.net/agram?retryWrites=true&w=majority';
 
-// Real-Time Socket Logic
-const activeUsers = new Map();
+mongoose.connect(MONGO_URI)
+    .then(() => console.log('MongoDB Atlas-ga muvaffaqiyatli ulandi'))
+    .catch(err => console.error('MongoDB ulanishida xatolik:', err));
+
+// API Marshrutilari
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/posts', require('./routes/postRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+
+// Socket.io Real-time logikasi
+const onlineUsers = new Map(); // userId -> socketId
 
 io.on('connection', (socket) => {
-    
-    // Foydalanuvchi tarmoqqa kirdi
+    // Online bo'lganda
     socket.on('user_online', (userId) => {
-        activeUsers.set(userId, socket.id);
-        io.emit('online_users_update', Array.from(activeUsers.keys()));
+        if (userId) {
+            onlineUsers.set(userId.toString(), socket.id);
+            io.emit('online_users_list', Array.from(onlineUsers.keys()));
+        }
     });
 
-    // Direct Chat
-    socket.on('send_message', async (data) => {
-        const { senderId, receiverId, text } = data;
+    // Real-time Direct Chat
+    socket.on('send_direct_message', async ({ receiverId, text, senderId }) => {
         try {
-            const newMessage = new Message({ sender: senderId, receiver: receiverId, text });
+            if (!receiverId || !text || !senderId) return;
+
+            const newMessage = new Message({
+                sender: senderId,
+                receiver: receiverId,
+                text
+            });
+
             await newMessage.save();
+            await newMessage.populate('sender', 'username avatar firstName lastName');
 
-            const receiverSocketId = activeUsers.get(receiverId);
+            const receiverSocketId = onlineUsers.get(receiverId.toString());
             if (receiverSocketId) {
-                io.to(receiverSocketId).emit('receive_message', {
-                    senderId,
-                    text,
-                    createdAt: newMessage.createdAt
-                });
+                io.to(receiverSocketId).emit('receive_direct_message', newMessage);
             }
+            
+            socket.emit('message_sent', newMessage);
         } catch (err) {
-            console.error('Xabar saqlashda xatolik:', err);
+            console.error("Socket Direct Xatolik:", err);
         }
     });
 
-    // "Yozmoqda..." indikatori
-    socket.on('typing', ({ senderId, receiverId, isTyping }) => {
-        const receiverSocketId = activeUsers.get(receiverId);
-        if (receiverSocketId) {
-            io.to(receiverSocketId).emit('user_typing', { senderId, isTyping });
-        }
-    });
-
-    // Real-time bildirishnomalar (Like, Comment)
+    // Notification yuborish
     socket.on('send_notification', ({ targetUserId, message, type }) => {
-        const targetSocket = activeUsers.get(targetUserId);
-        if (targetSocket) {
-            io.to(targetSocket).emit('new_notification', { message, type, time: new Date() });
+        const receiverSocketId = onlineUsers.get(targetUserId.toString());
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit('new_notification', {
+                message,
+                type,
+                time: new Date()
+            });
         }
     });
 
-    // Foydalanuvchi uzildi
     socket.on('disconnect', () => {
-        for (let [userId, socketId] of activeUsers.entries()) {
+        for (let [userId, socketId] of onlineUsers.entries()) {
             if (socketId === socket.id) {
-                activeUsers.delete(userId);
+                onlineUsers.delete(userId);
                 break;
             }
         }
-        io.emit('online_users_update', Array.from(activeUsers.keys()));
+        io.emit('online_users_list', Array.from(onlineUsers.keys()));
     });
 });
 
+// SPA Fallback
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 Server ${PORT}-portda ishga tushdi`));
+server.listen(PORT, () => {
+    console.log(`Server ${PORT}-portda ishlamoqda`);
+});
